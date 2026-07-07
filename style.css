@@ -1,1 +1,53 @@
-/* Zen Easy Bookmarks — styles land in Task 4 */
+/* Zen Easy Bookmarks
+   Replaces the per-space pinned tab area with a bookmark launcher rail.
+   Essentials are deliberately untouched. */
+
+/* Hide Zen's native per-space pinned tabs (rule: rail replaces pins).
+   Existing pins stay alive but hidden — documented in README. */
+#vertical-pinned-tabs-container {
+  display: none !important;
+}
+
+#easy-bookmarks-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 6px;
+  min-height: 24px;
+}
+
+.eb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  padding-inline-start: calc(6px + var(--eb-depth, 0) * 14px);
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.eb-row:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.eb-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 3px;
+}
+
+.eb-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.eb-drop-target > .eb-row,
+.eb-row.eb-drop-target {
+  outline: 1px dashed currentColor;
+  outline-offset: -1px;
+}

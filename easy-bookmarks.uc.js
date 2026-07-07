@@ -112,6 +112,80 @@
     },
   };
 
+  // --- Rail renderer ----------------------------------------------------
+  const Rail = {
+    root: null,
+    folderGuid: null,
+    _expanded: new Set(), // guids of folders the user expanded
+
+    mount() {
+      const pinned = document.querySelector("#vertical-pinned-tabs-container");
+      if (!pinned?.parentNode) {
+        log("mount point #vertical-pinned-tabs-container not found");
+        return false;
+      }
+      this.root = document.createElement("div");
+      this.root.id = "easy-bookmarks-rail";
+      pinned.parentNode.insertBefore(this.root, pinned);
+      return true;
+    },
+
+    async refresh() {
+      if (!this.root) return;
+      const space = ZenSpaces.getActive();
+      if (!space) return;
+      this.folderGuid = await SpaceFolders.ensureSpaceFolder(space);
+      const tree = await PlacesUtils.promiseBookmarksTree(this.folderGuid);
+      this.root.replaceChildren();
+      this._renderChildren(tree.children ?? [], this.root, 0);
+    },
+
+    _renderChildren(children, parentEl, depth) {
+      for (const node of children) {
+        parentEl.appendChild(this._renderNode(node, depth));
+      }
+    },
+
+    _renderNode(node, depth) {
+      const isFolder = node.type === "text/x-moz-place-container";
+      const el = document.createElement("div");
+      el.className = isFolder ? "eb-folder" : "eb-item";
+      el.dataset.guid = node.guid;
+
+      const row = document.createElement("div");
+      row.className = "eb-row";
+      row.style.setProperty("--eb-depth", depth);
+
+      const icon = document.createElement("img");
+      icon.className = "eb-icon";
+      icon.src = isFolder
+        ? "chrome://global/skin/icons/folder.svg"
+        : "page-icon:" + node.uri;
+
+      const label = document.createElement("span");
+      label.className = "eb-label";
+      label.textContent = node.title || node.uri || "";
+
+      row.append(icon, label);
+      el.appendChild(row);
+
+      if (isFolder) {
+        const childBox = document.createElement("div");
+        childBox.className = "eb-children";
+        childBox.hidden = !this._expanded.has(node.guid);
+        this._renderChildren(node.children ?? [], childBox, depth + 1);
+        el.appendChild(childBox);
+        row.addEventListener("click", () => {
+          if (this._expanded.has(node.guid)) this._expanded.delete(node.guid);
+          else this._expanded.add(node.guid);
+          childBox.hidden = !childBox.hidden;
+        });
+      }
+      // NOTE: rule #3 — deliberately NO close/× button on any row.
+      return el;
+    },
+  };
+
   // Dev-mode styles: when installed via dev-install.ps1 the CSS sits next to
   // the script in <profile>/chrome/JS. Under Sine, Sine applies style.css
   // itself and this is a harmless no-op.
@@ -135,7 +209,9 @@
 
   function init() {
     loadDevStyles();
-    ZenSpaces.onChange(() => log("space changed →", ZenSpaces.getActive()));
+    if (!Rail.mount()) return;
+    ZenSpaces.onChange(() => Rail.refresh());
+    Rail.refresh();
     log("initialized");
   }
 
@@ -152,5 +228,5 @@
   }
 
   // Expose for Browser Console verification during development.
-  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders };
+  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders, Rail };
 })();
