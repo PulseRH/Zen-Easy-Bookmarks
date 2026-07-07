@@ -256,6 +256,7 @@
         ContextMenu.openFor(node, isFolder, event);
       });
       // NOTE: rule #3 — deliberately NO close/× button on any row.
+      DragDrop.attach(el, row, node, isFolder);
       return el;
     },
   };
@@ -288,6 +289,104 @@
     },
   };
 
+  // --- Drag & drop ----------------------------------------------------------
+  // Custom drop targets, native data: consumes the browser's standard drag
+  // flavors (tab drags, text/x-moz-url) and writes through the Places
+  // backend, so behavior matches the rest of the browser.
+  const FLAVOR_ITEM = "application/x-easy-bookmark-guid";
+
+  const DragDrop = {
+    attach(el, row, node, isFolder) {
+      row.draggable = true;
+      row.addEventListener("dragstart", (event) => {
+        event.dataTransfer.setData(FLAVOR_ITEM, node.guid);
+        event.dataTransfer.effectAllowed = "move";
+        event.stopPropagation();
+      });
+
+      if (isFolder) {
+        // Dropping ONTO a folder row files the payload inside it.
+        row.addEventListener("dragover", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          row.classList.add("eb-drop-target");
+        });
+        row.addEventListener("dragleave", () =>
+          row.classList.remove("eb-drop-target")
+        );
+        row.addEventListener("drop", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          row.classList.remove("eb-drop-target");
+          this.handleDrop(event, node.guid, undefined);
+        });
+      }
+    },
+
+    attachRoot(root) {
+      root.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      });
+      root.addEventListener("drop", (event) => {
+        event.preventDefault();
+        this.handleDrop(event, Rail.folderGuid, this._indexFromPoint(event));
+      });
+    },
+
+    // Insertion index among the rail's top-level nodes, from drop Y.
+    _indexFromPoint(event) {
+      const rows = [...Rail.root.children];
+      for (let i = 0; i < rows.length; i++) {
+        const rect = rows[i].getBoundingClientRect();
+        if (event.clientY < rect.top + rect.height / 2) return i;
+      }
+      return rows.length;
+    },
+
+    async handleDrop(event, parentGuid, index) {
+      const dt = event.dataTransfer;
+      const targetIndex = index ?? PlacesUtils.bookmarks.DEFAULT_INDEX;
+
+      // 1. Internal rail item → move / reorder within Places.
+      const guid = dt.getData(FLAVOR_ITEM);
+      if (guid) {
+        await PlacesUtils.bookmarks.update({
+          guid,
+          parentGuid,
+          index: targetIndex,
+        });
+        return;
+      }
+
+      // 2. A browser tab → the redirected "drag to pin" gesture:
+      //    bookmark it, then CLOSE the tab (files it away, frees memory).
+      const tab = dt.mozGetDataAt?.("application/x-moz-tabbrowser-tab", 0);
+      if (tab?.linkedBrowser) {
+        await PlacesUtils.bookmarks.insert({
+          parentGuid,
+          index: targetIndex,
+          title: tab.label,
+          url: tab.linkedBrowser.currentURI.spec,
+        });
+        gBrowser.removeTab(tab);
+        return;
+      }
+
+      // 3. Plain URL drop (links, address bar). Duplicates allowed by spec.
+      const urlData = dt.getData("text/x-moz-url");
+      if (urlData) {
+        const [url, title] = urlData.split("\n");
+        await PlacesUtils.bookmarks.insert({
+          parentGuid,
+          index: targetIndex,
+          title: title || url,
+          url,
+        });
+      }
+    },
+  };
+
   // Dev-mode styles: when installed via dev-install.ps1 the CSS sits next to
   // the script in <profile>/chrome/JS. Under Sine, Sine applies style.css
   // itself and this is a harmless no-op.
@@ -313,6 +412,7 @@
     loadDevStyles();
     if (!Rail.mount()) return;
     LiveUpdate.start();
+    DragDrop.attachRoot(Rail.root);
     ZenSpaces.onChange(() => Rail.refresh());
     Rail.refresh();
     log("initialized");
@@ -331,5 +431,5 @@
   }
 
   // Expose for Browser Console verification during development.
-  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders, Rail, Launcher, ContextMenu, LiveUpdate };
+  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders, Rail, Launcher, ContextMenu, DragDrop };
 })();
