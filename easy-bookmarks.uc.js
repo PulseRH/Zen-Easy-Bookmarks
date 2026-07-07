@@ -16,6 +16,43 @@
   const PARENT_TITLE = "Easy Bookmarks";
   const log = (...args) => console.log("[EasyBookmarks]", ...args);
 
+  // --- Zen integration ------------------------------------------------
+  // The ONLY module allowed to touch Zen internals (gZenWorkspaces, zen.*
+  // prefs). Zen updates may break these names; fix them here only.
+  const ZenSpaces = {
+    getActive() {
+      const ws = window.gZenWorkspaces;
+      if (!ws) return null;
+      try {
+        const space =
+          ws.getActiveWorkspaceFromCache?.() ??
+          ws.workspaceCache?.find?.((w) => w.uuid === ws.activeWorkspace);
+        if (!space) return null;
+        return {
+          id: space.uuid,
+          name: space.name,
+          containerId: space.containerTabId ?? 0,
+        };
+      } catch (e) {
+        log("ZenSpaces.getActive failed", e);
+        return null;
+      }
+    },
+
+    // Fires callback after the active space changes. Uses the
+    // zen.workspaces.active pref as the change signal (stable fallback,
+    // verified at runtime by the human in Task 2 Step 1).
+    onChange(callback) {
+      const observer = { observe: () => callback() };
+      Services.prefs.addObserver("zen.workspaces.active", observer);
+      window.addEventListener(
+        "unload",
+        () => Services.prefs.removeObserver("zen.workspaces.active", observer),
+        { once: true }
+      );
+    },
+  };
+
   // Dev-mode styles: when installed via dev-install.ps1 the CSS sits next to
   // the script in <profile>/chrome/JS. Under Sine, Sine applies style.css
   // itself and this is a harmless no-op.
@@ -39,6 +76,7 @@
 
   function init() {
     loadDevStyles();
+    ZenSpaces.onChange(() => log("space changed →", ZenSpaces.getActive()));
     log("initialized");
   }
 
@@ -55,5 +93,5 @@
   }
 
   // Expose for Browser Console verification during development.
-  window.EasyBookmarks = { log };
+  window.EasyBookmarks = { log, ZenSpaces };
 })();
