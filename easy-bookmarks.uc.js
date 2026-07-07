@@ -194,7 +194,23 @@
 
     _ensureMounted() {
       const pinned = this._anchor();
-      if (!pinned?.parentNode) return false;
+      if (!pinned) return false;
+      if (pinned.classList?.contains("zen-workspace-pinned-tabs-section")) {
+        // Mount INSIDE the pinned section, before Zen's native pinned/normal
+        // separator — the rail occupies exactly the pins slot, above the
+        // separator line. CSS hides the section's other children (the actual
+        // pins) but keeps the rail and the separator visible.
+        if (this.root.parentNode !== pinned) {
+          const separator = pinned.querySelector(
+            ".pinned-tabs-container-separator"
+          );
+          pinned.insertBefore(this.root, separator ?? null);
+        }
+        return true;
+      }
+      // Fallback (non-workspace mode / older builds): the anchor container
+      // itself is hidden by CSS, so mount as a sibling before it.
+      if (!pinned.parentNode) return false;
       if (this.root.parentNode !== pinned.parentNode) {
         pinned.parentNode.insertBefore(this.root, pinned);
       }

@@ -2,13 +2,26 @@
    Replaces the per-space pinned tab area with a bookmark launcher rail.
    Essentials are deliberately untouched. */
 
-/* Hide Zen's native per-space pinned tabs (rule: rail replaces pins).
-   Existing pins stay alive but hidden — documented in README.
-   .zen-workspace-pinned-tabs-section is the per-space pinned area in
-   current Zen (workspaces enabled); the two ids are fallbacks for
-   non-workspace mode / older builds. Essentials (#zen-essentials) are
-   deliberately untouched. */
-.zen-workspace-pinned-tabs-section,
+/* Hide Zen's native pinned tabs (rule: rail replaces pins). Existing pins
+   stay alive but hidden — documented in README.
+   The rail mounts INSIDE the per-space .zen-workspace-pinned-tabs-section
+   (current Zen, workspaces enabled), so hide everything in that section
+   EXCEPT the rail and Zen's native pinned/normal separator line — the
+   bookmarks then sit exactly in the pins slot, above the line.
+   The two ids are fallbacks for non-workspace mode / older builds.
+   Essentials (#zen-essentials) are deliberately untouched. */
+.zen-workspace-pinned-tabs-section
+  > *:not(#easy-bookmarks-rail):not(.pinned-tabs-container-separator) {
+  display: none !important;
+}
+
+/* Zen hides the separator when it thinks there are no pins; the rail lives
+   here now, so keep the line between it and normal tabs. */
+.zen-workspace-pinned-tabs-section[hide-separator]
+  .pinned-tabs-container-separator {
+  display: flex !important;
+}
+
 #pinned-tabs-container,
 #vertical-pinned-tabs-container {
   display: none !important;
