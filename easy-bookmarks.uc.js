@@ -141,7 +141,6 @@
       del.addEventListener("command", async () => {
         // remove() deletes folders recursively — real Places deletion.
         await PlacesUtils.bookmarks.remove(this._targetGuid);
-        Rail.refresh();
       });
 
       const sep = document.createXULElement("menuseparator");
@@ -154,7 +153,6 @@
           type: PlacesUtils.bookmarks.TYPE_FOLDER,
           title: "New Folder",
         });
-        Rail.refresh();
       });
 
       popup.append(del, sep, newFolder);
@@ -258,6 +256,34 @@
     },
   };
 
+  // --- Live updates --------------------------------------------------------
+  // Places is the source of truth; edits made anywhere (native Library,
+  // sync, this mod) re-render the rail. Debounced full refresh — the tree
+  // is small, correctness beats cleverness.
+  const LiveUpdate = {
+    _events: [
+      "bookmark-added",
+      "bookmark-removed",
+      "bookmark-moved",
+      "bookmark-title-changed",
+      "bookmark-url-changed",
+    ],
+    _timer: null,
+
+    start() {
+      this._handler = () => {
+        clearTimeout(this._timer);
+        this._timer = setTimeout(() => Rail.refresh(), 150);
+      };
+      PlacesUtils.observers.addListener(this._events, this._handler);
+      window.addEventListener(
+        "unload",
+        () => PlacesUtils.observers.removeListener(this._events, this._handler),
+        { once: true }
+      );
+    },
+  };
+
   // Dev-mode styles: when installed via dev-install.ps1 the CSS sits next to
   // the script in <profile>/chrome/JS. Under Sine, Sine applies style.css
   // itself and this is a harmless no-op.
@@ -282,6 +308,7 @@
   function init() {
     loadDevStyles();
     if (!Rail.mount()) return;
+    LiveUpdate.start();
     ZenSpaces.onChange(() => Rail.refresh());
     Rail.refresh();
     log("initialized");
@@ -300,5 +327,5 @@
   }
 
   // Expose for Browser Console verification during development.
-  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders, Rail, Launcher, ContextMenu };
+  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders, Rail, Launcher, ContextMenu, LiveUpdate };
 })();
