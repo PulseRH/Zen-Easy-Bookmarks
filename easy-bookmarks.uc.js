@@ -350,12 +350,24 @@
     },
 
     attachRoot(root) {
+      // stopPropagation matters: Zen's tab strip listens for dragover/drop
+      // in the bubble phase on an ancestor — without it, a drop we handle
+      // here would ALSO be processed by Zen's native drag-to-pin logic.
       root.addEventListener("dragover", (event) => {
         event.preventDefault();
+        event.stopPropagation();
         event.dataTransfer.dropEffect = "move";
+        root.classList.add("eb-rail-drag-over");
+      });
+      root.addEventListener("dragleave", (event) => {
+        if (!root.contains(event.relatedTarget)) {
+          root.classList.remove("eb-rail-drag-over");
+        }
       });
       root.addEventListener("drop", (event) => {
         event.preventDefault();
+        event.stopPropagation();
+        root.classList.remove("eb-rail-drag-over");
         // A drop that lands inside an expanded folder's children area
         // bubbles up to the root listener. Derive the TRUE parent from the
         // DOM instead of always filing at the rail root, or drops inside a

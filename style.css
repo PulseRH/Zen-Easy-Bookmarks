@@ -27,6 +27,30 @@
   min-height: 24px;
 }
 
+/* An empty rail must still be a visible, aimable drop target — otherwise
+   drops miss it and land on Zen's tab strip (native drag-to-pin). */
+#easy-bookmarks-rail:empty {
+  min-height: 42px;
+  margin: 4px 8px;
+  border: 1px dashed color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+#easy-bookmarks-rail:empty::after {
+  content: "Drop tabs here to bookmark";
+  font-size: 11px;
+  opacity: 0.5;
+}
+
+/* Highlight while a drag is over the rail. */
+#easy-bookmarks-rail.eb-rail-drag-over {
+  outline: 1px dashed currentColor;
+  outline-offset: -1px;
+  border-radius: 8px;
+}
+
 .eb-row {
   display: flex;
   align-items: center;
