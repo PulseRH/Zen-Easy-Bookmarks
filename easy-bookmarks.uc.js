@@ -318,7 +318,9 @@
           event.preventDefault();
           event.stopPropagation();
           row.classList.remove("eb-drop-target");
-          this.handleDrop(event, node.guid, undefined);
+          this.handleDrop(event, node.guid, undefined).catch((e) =>
+            log("drop failed", e)
+          );
         });
       }
     },
@@ -330,13 +332,28 @@
       });
       root.addEventListener("drop", (event) => {
         event.preventDefault();
-        this.handleDrop(event, Rail.folderGuid, this._indexFromPoint(event));
+        // A drop that lands inside an expanded folder's children area
+        // bubbles up to the root listener. Derive the TRUE parent from the
+        // DOM instead of always filing at the rail root, or drops inside a
+        // folder would silently re-parent items out of it.
+        const childBox = event.target.closest?.(".eb-children");
+        let parentGuid, idx;
+        if (childBox) {
+          parentGuid = childBox.parentElement.dataset.guid;
+          idx = this._indexInContainer(event, childBox);
+        } else {
+          parentGuid = Rail.folderGuid;
+          idx = this._indexInContainer(event, Rail.root);
+        }
+        this.handleDrop(event, parentGuid, idx).catch((e) =>
+          log("drop failed", e)
+        );
       });
     },
 
-    // Insertion index among the rail's top-level nodes, from drop Y.
-    _indexFromPoint(event) {
-      const rows = [...Rail.root.children];
+    // Insertion index among a container's direct children, from drop Y.
+    _indexInContainer(event, container) {
+      const rows = [...container.children];
       for (let i = 0; i < rows.length; i++) {
         const rect = rows[i].getBoundingClientRect();
         if (event.clientY < rect.top + rect.height / 2) return i;
@@ -346,15 +363,31 @@
 
     async handleDrop(event, parentGuid, index) {
       const dt = event.dataTransfer;
+      if (!parentGuid) return; // rail not initialized yet
       const targetIndex = index ?? PlacesUtils.bookmarks.DEFAULT_INDEX;
 
       // 1. Internal rail item → move / reorder within Places.
       const guid = dt.getData(FLAVOR_ITEM);
       if (guid) {
+        // PlacesUtils interprets `index` against the children list AFTER
+        // the item is removed from its old slot. Our midpoint math computes
+        // a visual gap index that INCLUDES the dragged item, so moving an
+        // item downward within the same parent needs a -1 correction.
+        let moveIndex = targetIndex;
+        if (moveIndex !== PlacesUtils.bookmarks.DEFAULT_INDEX) {
+          const existing = await PlacesUtils.bookmarks.fetch(guid);
+          if (
+            existing &&
+            existing.parentGuid === parentGuid &&
+            existing.index < moveIndex
+          ) {
+            moveIndex -= 1; // account for removal from old slot
+          }
+        }
         await PlacesUtils.bookmarks.update({
           guid,
           parentGuid,
-          index: targetIndex,
+          index: moveIndex,
         });
         return;
       }
@@ -414,7 +447,17 @@
     LiveUpdate.start();
     DragDrop.attachRoot(Rail.root);
     ZenSpaces.onChange(() => Rail.refresh());
-    Rail.refresh();
+    // gZenWorkspaces may not be ready yet at delayed startup — retry briefly.
+    const tryInitialRefresh = (attempt = 0) => {
+      if (ZenSpaces.getActive()) {
+        Rail.refresh();
+      } else if (attempt < 20) {
+        setTimeout(() => tryInitialRefresh(attempt + 1), 250);
+      } else {
+        log("gave up waiting for gZenWorkspaces after 5s");
+      }
+    };
+    tryInitialRefresh();
     log("initialized");
   }
 
