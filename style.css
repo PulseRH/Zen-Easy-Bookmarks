@@ -3,7 +3,10 @@
    Essentials are deliberately untouched. */
 
 /* Hide Zen's native per-space pinned tabs (rule: rail replaces pins).
-   Existing pins stay alive but hidden — documented in README. */
+   Existing pins stay alive but hidden — documented in README.
+   #pinned-tabs-container is current Zen; #vertical-pinned-tabs-container
+   is kept for older builds. */
+#pinned-tabs-container,
 #vertical-pinned-tabs-container {
   display: none !important;
 }

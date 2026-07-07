@@ -178,9 +178,12 @@
     _expanded: new Set(), // guids of folders the user expanded
 
     mount() {
-      const pinned = document.querySelector("#vertical-pinned-tabs-container");
+      // #pinned-tabs-container is current Zen; the vertical- id is older builds.
+      const pinned =
+        document.querySelector("#pinned-tabs-container") ??
+        document.querySelector("#vertical-pinned-tabs-container");
       if (!pinned?.parentNode) {
-        log("mount point #vertical-pinned-tabs-container not found");
+        log("pinned tabs container not found — cannot mount rail");
         return false;
       }
       this.root = document.createElement("div");
