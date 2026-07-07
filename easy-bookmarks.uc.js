@@ -53,6 +53,65 @@
     },
   };
 
+  // --- Places folder mapping -------------------------------------------
+  // Each space maps to a real bookmark folder under
+  // "Bookmarks Toolbar/Easy Bookmarks/<SpaceName>". Matched by space id
+  // (stored in a JSON pref), titled by space name (retitled on rename).
+  const SpaceFolders = {
+    _readMap() {
+      try {
+        return JSON.parse(Services.prefs.getStringPref(PREF_MAPPING, "{}"));
+      } catch {
+        return {};
+      }
+    },
+
+    _writeMap(map) {
+      Services.prefs.setStringPref(PREF_MAPPING, JSON.stringify(map));
+    },
+
+    async ensureParent() {
+      const map = this._readMap();
+      if (map.__parent && (await PlacesUtils.bookmarks.fetch(map.__parent))) {
+        return map.__parent;
+      }
+      const folder = await PlacesUtils.bookmarks.insert({
+        parentGuid: PlacesUtils.bookmarks.toolbarGuid,
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+        title: PARENT_TITLE,
+      });
+      map.__parent = folder.guid;
+      this._writeMap(map);
+      return folder.guid;
+    },
+
+    // Returns the folder guid for a space ({id, name}), creating it on
+    // first use and syncing the title if the space was renamed.
+    async ensureSpaceFolder(space) {
+      const map = this._readMap();
+      const guid = map[space.id];
+      if (guid) {
+        const existing = await PlacesUtils.bookmarks.fetch(guid);
+        if (existing) {
+          if (existing.title !== space.name) {
+            await PlacesUtils.bookmarks.update({ guid, title: space.name });
+          }
+          return guid;
+        }
+        // Folder was deleted externally — fall through and recreate.
+      }
+      const parentGuid = await this.ensureParent();
+      const folder = await PlacesUtils.bookmarks.insert({
+        parentGuid,
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+        title: space.name,
+      });
+      map[space.id] = folder.guid;
+      this._writeMap(map);
+      return folder.guid;
+    },
+  };
+
   // Dev-mode styles: when installed via dev-install.ps1 the CSS sits next to
   // the script in <profile>/chrome/JS. Under Sine, Sine applies style.css
   // itself and this is a harmless no-op.
@@ -93,5 +152,5 @@
   }
 
   // Expose for Browser Console verification during development.
-  window.EasyBookmarks = { log, ZenSpaces };
+  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders };
 })();
