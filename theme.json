@@ -1,0 +1,18 @@
+{
+  "id": "zen-easy-bookmarks",
+  "name": "Zen Easy Bookmarks",
+  "description": "Replaces the per-space pinned tab area with a launcher rail backed by real bookmarks. Click opens a fresh tab in the space's container; items are unloaded URLs with no close button.",
+  "homepage": "https://github.com/CHANGEME/Zen-Easy-Bookmarks",
+  "style": {
+    "chrome": "style.css"
+  },
+  "scripts": {
+    "easy-bookmarks.uc.js": {
+      "include": ["chrome://browser/content/browser.xhtml"]
+    }
+  },
+  "author": "Loz",
+  "version": "0.1.0",
+  "tags": ["bookmarks", "pinned tabs", "sidebar", "workspaces", "zen browser"],
+  "fork": ["zen"]
+}
