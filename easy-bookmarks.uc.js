@@ -189,12 +189,16 @@
       return true;
     },
 
+    _refreshSeq: 0,
     async refresh() {
       if (!this.root) return;
       const space = ZenSpaces.getActive();
       if (!space) return;
-      this.folderGuid = await SpaceFolders.ensureSpaceFolder(space);
-      const tree = await PlacesUtils.promiseBookmarksTree(this.folderGuid);
+      const seq = ++this._refreshSeq;
+      const folderGuid = await SpaceFolders.ensureSpaceFolder(space);
+      const tree = await PlacesUtils.promiseBookmarksTree(folderGuid);
+      if (seq !== this._refreshSeq) return; // superseded by a newer refresh
+      this.folderGuid = folderGuid;
       this.root.replaceChildren();
       this._renderChildren(tree.children ?? [], this.root, 0);
     },
