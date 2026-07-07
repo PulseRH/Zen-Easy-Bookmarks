@@ -112,6 +112,19 @@
     },
   };
 
+  // --- Launcher ----------------------------------------------------------
+  // Rule #1: click = fresh tab, ALWAYS. Never switch-to, never reuse.
+  const Launcher = {
+    open(url, containerId) {
+      const tab = gBrowser.addTab(url, {
+        userContextId: containerId || 0,
+        triggeringPrincipal:
+          Services.scriptSecurityManager.getSystemPrincipal(),
+      });
+      gBrowser.selectedTab = tab;
+    },
+  };
+
   // --- Rail renderer ----------------------------------------------------
   const Rail = {
     root: null,
@@ -180,6 +193,12 @@
           else this._expanded.add(node.guid);
           childBox.hidden = !childBox.hidden;
         });
+      } else {
+        row.addEventListener("click", (event) => {
+          if (event.button !== 0) return;
+          const space = ZenSpaces.getActive();
+          Launcher.open(node.uri, space?.containerId ?? 0);
+        });
       }
       // NOTE: rule #3 — deliberately NO close/× button on any row.
       return el;
@@ -228,5 +247,5 @@
   }
 
   // Expose for Browser Console verification during development.
-  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders, Rail };
+  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders, Rail, Launcher };
 })();
