@@ -4,10 +4,18 @@
 
 /* Hide Zen's native per-space pinned tabs (rule: rail replaces pins).
    Existing pins stay alive but hidden — documented in README.
-   #pinned-tabs-container is current Zen; #vertical-pinned-tabs-container
-   is kept for older builds. */
+   .zen-workspace-pinned-tabs-section is the per-space pinned area in
+   current Zen (workspaces enabled); the two ids are fallbacks for
+   non-workspace mode / older builds. Essentials (#zen-essentials) are
+   deliberately untouched. */
+.zen-workspace-pinned-tabs-section,
 #pinned-tabs-container,
 #vertical-pinned-tabs-container {
+  display: none !important;
+}
+
+/* Zen's "drag here to pin" promo card — pointless once pins are replaced. */
+#drag-to-pin-promo-card {
   display: none !important;
 }
 

@@ -177,24 +177,45 @@
     folderGuid: null,
     _expanded: new Set(), // guids of folders the user expanded
 
-    mount() {
-      // #pinned-tabs-container is current Zen; the vertical- id is older builds.
-      const pinned =
+    // Current Zen (workspaces enabled): pins live in a per-space
+    // .zen-workspace-pinned-tabs-section inside each workspace element —
+    // gZenWorkspaces.pinnedTabsContainer resolves the ACTIVE one. The rail is
+    // a single element that gets re-anchored into the active workspace on
+    // every refresh (a rail left inside a hidden workspace element would
+    // vanish on space switch). The id lookups are fallbacks for
+    // non-workspace mode / older builds.
+    _anchor() {
+      return (
+        window.gZenWorkspaces?.pinnedTabsContainer ??
         document.querySelector("#pinned-tabs-container") ??
-        document.querySelector("#vertical-pinned-tabs-container");
-      if (!pinned?.parentNode) {
-        log("pinned tabs container not found — cannot mount rail");
-        return false;
+        document.querySelector("#vertical-pinned-tabs-container")
+      );
+    },
+
+    _ensureMounted() {
+      const pinned = this._anchor();
+      if (!pinned?.parentNode) return false;
+      if (this.root.parentNode !== pinned.parentNode) {
+        pinned.parentNode.insertBefore(this.root, pinned);
       }
+      return true;
+    },
+
+    mount() {
       this.root = document.createElement("div");
       this.root.id = "easy-bookmarks-rail";
-      pinned.parentNode.insertBefore(this.root, pinned);
+      if (!this._ensureMounted()) {
+        log("pinned tabs container not found — cannot mount rail");
+        this.root = null;
+        return false;
+      }
       return true;
     },
 
     _refreshSeq: 0,
     async refresh() {
       if (!this.root) return;
+      this._ensureMounted();
       const space = ZenSpaces.getActive();
       if (!space) return;
       const seq = ++this._refreshSeq;
