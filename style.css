@@ -79,6 +79,28 @@
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
+/* Disclosure triangle: right = closed, rotates to point down when open,
+   matching how Zen's own pinned folders read. Drawn with borders so it
+   needs no icon asset. .eb-leaf is the invisible spacer on non-folders. */
+.eb-twisty {
+  flex: none;
+  width: 0;
+  height: 0;
+  margin-inline: 1px 3px;
+  border-block: 4px solid transparent;
+  border-inline-start: 5px solid currentColor;
+  opacity: 0.5;
+  transition: transform 0.15s ease;
+}
+
+.eb-twisty.eb-leaf {
+  border-inline-start-color: transparent;
+}
+
+.eb-folder.eb-open > .eb-row > .eb-twisty {
+  transform: rotate(90deg);
+}
+
 .eb-icon {
   width: 16px;
   height: 16px;

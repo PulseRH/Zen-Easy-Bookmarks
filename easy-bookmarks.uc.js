@@ -125,16 +125,42 @@
     },
   };
 
+  // Prompt for a new title and write it to Places (folders and bookmarks
+  // alike). LiveUpdate's observer re-renders the rail afterwards.
+  async function renameBookmark(guid, currentTitle) {
+    const result = { value: currentTitle || "" };
+    const ok = Services.prompt.prompt(
+      window,
+      "Rename",
+      "New name:",
+      result,
+      null,
+      { value: false }
+    );
+    if (ok && result.value != null && result.value !== currentTitle) {
+      await PlacesUtils.bookmarks.update({ guid, title: result.value });
+    }
+  }
+
   // --- Context menu -------------------------------------------------------
   // Rule #3: removal only happens here (no × buttons anywhere).
   const ContextMenu = {
     _popup: null,
     _targetGuid: null,
+    _targetTitle: "",
 
     _ensure() {
       if (this._popup) return this._popup;
       const popup = document.createXULElement("menupopup");
       popup.id = "easy-bookmarks-context";
+
+      const rename = document.createXULElement("menuitem");
+      rename.setAttribute("label", "Rename");
+      rename.addEventListener("command", () => {
+        renameBookmark(this._targetGuid, this._targetTitle).catch((e) =>
+          log("rename failed", e)
+        );
+      });
 
       const del = document.createXULElement("menuitem");
       del.id = "eb-ctx-delete";
@@ -155,7 +181,7 @@
         });
       });
 
-      popup.append(del, sep, newFolder);
+      popup.append(rename, del, sep, newFolder);
       document.getElementById("mainPopupSet").appendChild(popup);
       this._popup = popup;
       return popup;
@@ -164,6 +190,7 @@
     openFor(node, isFolder, event) {
       const popup = this._ensure();
       this._targetGuid = node.guid;
+      this._targetTitle = node.title || "";
       popup
         .querySelector("#eb-ctx-delete")
         .setAttribute("label", isFolder ? "Delete Folder" : "Delete Bookmark");
@@ -259,6 +286,12 @@
       row.className = "eb-row";
       row.style.setProperty("--eb-depth", depth);
 
+      // Disclosure triangle: present (and rotatable) on folders, an
+      // invisible same-width spacer on items so labels stay aligned.
+      const twisty = document.createElement("span");
+      twisty.className = isFolder ? "eb-twisty" : "eb-twisty eb-leaf";
+      row.appendChild(twisty);
+
       const icon = document.createElement("img");
       icon.className = "eb-icon";
       icon.src = isFolder
@@ -273,15 +306,26 @@
       el.appendChild(row);
 
       if (isFolder) {
+        const expanded = this._expanded.has(node.guid);
+        el.classList.toggle("eb-open", expanded);
         const childBox = document.createElement("div");
         childBox.className = "eb-children";
-        childBox.hidden = !this._expanded.has(node.guid);
+        childBox.hidden = !expanded;
         this._renderChildren(node.children ?? [], childBox, depth + 1);
         el.appendChild(childBox);
         row.addEventListener("click", () => {
-          if (this._expanded.has(node.guid)) this._expanded.delete(node.guid);
-          else this._expanded.add(node.guid);
-          childBox.hidden = !childBox.hidden;
+          const open = !this._expanded.has(node.guid);
+          if (open) this._expanded.add(node.guid);
+          else this._expanded.delete(node.guid);
+          childBox.hidden = !open;
+          el.classList.toggle("eb-open", open);
+        });
+        // Double-click a folder to rename it.
+        row.addEventListener("dblclick", (event) => {
+          event.preventDefault();
+          renameBookmark(node.guid, node.title || "").catch((e) =>
+            log("rename failed", e)
+          );
         });
       } else {
         row.addEventListener("click", (event) => {
