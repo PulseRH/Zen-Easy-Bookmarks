@@ -125,6 +125,54 @@
     },
   };
 
+  // --- Context menu -------------------------------------------------------
+  // Rule #3: removal only happens here (no × buttons anywhere).
+  const ContextMenu = {
+    _popup: null,
+    _targetGuid: null,
+
+    _ensure() {
+      if (this._popup) return this._popup;
+      const popup = document.createXULElement("menupopup");
+      popup.id = "easy-bookmarks-context";
+
+      const del = document.createXULElement("menuitem");
+      del.id = "eb-ctx-delete";
+      del.addEventListener("command", async () => {
+        // remove() deletes folders recursively — real Places deletion.
+        await PlacesUtils.bookmarks.remove(this._targetGuid);
+        Rail.refresh();
+      });
+
+      const sep = document.createXULElement("menuseparator");
+
+      const newFolder = document.createXULElement("menuitem");
+      newFolder.setAttribute("label", "New Folder");
+      newFolder.addEventListener("command", async () => {
+        await PlacesUtils.bookmarks.insert({
+          parentGuid: Rail.folderGuid,
+          type: PlacesUtils.bookmarks.TYPE_FOLDER,
+          title: "New Folder",
+        });
+        Rail.refresh();
+      });
+
+      popup.append(del, sep, newFolder);
+      document.getElementById("mainPopupSet").appendChild(popup);
+      this._popup = popup;
+      return popup;
+    },
+
+    openFor(node, isFolder, event) {
+      const popup = this._ensure();
+      this._targetGuid = node.guid;
+      popup
+        .querySelector("#eb-ctx-delete")
+        .setAttribute("label", isFolder ? "Delete Folder" : "Delete Bookmark");
+      popup.openPopupAtScreen(event.screenX, event.screenY, true);
+    },
+  };
+
   // --- Rail renderer ----------------------------------------------------
   const Rail = {
     root: null,
@@ -200,6 +248,11 @@
           Launcher.open(node.uri, space?.containerId ?? 0);
         });
       }
+      row.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        ContextMenu.openFor(node, isFolder, event);
+      });
       // NOTE: rule #3 — deliberately NO close/× button on any row.
       return el;
     },
@@ -247,5 +300,5 @@
   }
 
   // Expose for Browser Console verification during development.
-  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders, Rail, Launcher };
+  window.EasyBookmarks = { log, ZenSpaces, SpaceFolders, Rail, Launcher, ContextMenu };
 })();
