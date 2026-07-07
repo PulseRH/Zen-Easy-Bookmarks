@@ -38,8 +38,7 @@ Install via Sine: add this repo in Sine's mod search / install-from-repo.
 - Deleting a space keeps its bookmark folder (your bookmarks are never
   destroyed by space changes).
 
-## Development
+## Debugging
 
-`powershell -File dev-install.ps1 -ProfileDir "<profile root from about:profiles>"`
-then restart Zen. Logs appear in the Browser Console (`Ctrl+Shift+J`)
-prefixed `[EasyBookmarks]`.
+Runtime logs appear in the Browser Console (`Ctrl+Shift+J`), prefixed
+`[EasyBookmarks]`. You should see `[EasyBookmarks] initialized` after startup.
